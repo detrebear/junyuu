@@ -1,4 +1,6 @@
+import json
 from time import time
+from playwright.sync_api import TimeoutError
 from camoufox.sync_api import Camoufox
 
 EXPIRATION = 20*60
@@ -8,36 +10,38 @@ class Preloader:
 	def __init__(self):
 		self.manager = Camoufox(os="windows", humanize=1.2, headless=HEADLESS)
 		self.browser = self.manager.__enter__()
+		self.context = self.browser.new_context()
 		self.cache = {}
 
 	def __del__(self):
+		self.context.close()
+		self.browser.close()
 		self.manager.__exit__()
 
 	def trigger(self, board, thread_id):
 		url = f"https://sys.4chan.org/captcha?board={board}&thread_id={thread_id}"
 
-		page = self.browser.new_page()
+		page = self.context.new_page()
 		page.goto(url)
 		page.wait_for_load_state("domcontentloaded")
 
-		child = None
-		def catch_captcha_child(frame):
-			nonlocal child
-			if frame.url.startswith("blob:https://challenges.cloudflare.com"):	# This element is within all the #shadow-root, so it lets us bypass them
-				child = frame
-				return True
-			return False
-		page.wait_for_event("framenavigated", catch_captcha_child)
-		child.parent_frame.wait_for_load_state("domcontentloaded")
-		captcha = child.frame_element().get_property("previousSibling")	# Bypass the cloudflare closed shadow root
-		captcha.wait_for_selector("#verifying", state="hidden")
+		if page.evaluate("document.querySelector('body > h1') != null"):
+			bypass = None
+			def catch_captcha_bypass(frame):
+				nonlocal bypass
+				if frame.url.startswith("blob:https://challenges.cloudflare.com"):	# This iframe is within all the #shadow-root, so it lets us bypass them
+					bypass = frame
+					return True
+				return False
+			page.wait_for_event("framenavigated", catch_captcha_bypass)
+			bypass.parent_frame.wait_for_load_state("domcontentloaded")
+			captcha = bypass.frame_element().get_property("previousSibling")	# Bypass the closed shadow root to the main Cloudflare wrapper
+			captcha.wait_for_selector("#verifying", state="hidden")
+			captcha.click()
 
-		twister = None
-		def handle_captcha_redirect(request):
-			nonlocal twister
-			return url in request.url and (twister := request.response().json()) or False
-		captcha.click()
-		page.wait_for_event("requestfinished", handle_captcha_redirect)
+		result = page.locator("body > pre")
+		result.wait_for()
+		twister = json.loads(result.text_content())
 
 		# TODO: Use this data to change the request at the start
 		self.cache.setdefault(board, {})
