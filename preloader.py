@@ -1,9 +1,7 @@
 import json
-from time import time
 from playwright.sync_api import TimeoutError
 from camoufox.sync_api import Camoufox
 
-EXPIRATION = 20*60
 HEADLESS = False
 
 class Preloader:
@@ -19,7 +17,8 @@ class Preloader:
 		self.manager.__exit__()
 
 	def trigger(self, board, thread_id):
-		url = f"https://sys.4chan.org/captcha?board={board}&thread_id={thread_id}"
+		ticket = self.cache.get(board, {}).get(thread_id, {}).get("ticket")
+		url = f"https://sys.4chan.org/captcha?board={board}&thread_id={thread_id}&ticket={ticket or ""}"
 
 		page = self.context.new_page()
 		page.goto(url)
@@ -39,12 +38,17 @@ class Preloader:
 			captcha.wait_for_selector("#verifying", state="hidden")
 			captcha.click()
 
-		result = page.locator("body > pre")
-		result.wait_for()
-		twister = json.loads(result.text_content())
+		response = page.locator("body > pre")
+		response.wait_for()
+		twister = json.loads(response.text_content())
 
-		# TODO: Use this data to change the request at the start
-		self.cache.setdefault(board, {})
-		self.cache[board][thread_id] = {"time": time(), "twister": twister}
-
-		return twister
+		update = {
+			"ticket": twister.get("ticket") or ticket,
+			"pcd": twister.get("pcd"),
+			"pcd_msg": twister.get("pcd_msg")
+		}
+		self.cache \
+			.setdefault(board, {}) \
+			.setdefault(thread_id, {}) \
+			.update({key: value for key, value in update.items() if value})
+		return self.cache[board][thread_id]
