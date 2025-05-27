@@ -7,16 +7,14 @@ class Preloader:
 		self.manager = Camoufox(os="windows", humanize=1.2, headless=headless)
 		self.browser = self.manager.__enter__()
 		self.context = self.browser.new_context()
-		self.cache = {}
 
 	def __del__(self):
 		self.context.close()
 		self.browser.close()
 		self.manager.__exit__()
 
-	def trigger(self, board, thread_id):
-		ticket = self.cache.get(board, {}).get(thread_id, {}).get("ticket")
-		url = f"https://sys.4chan.org/captcha?board={board}&thread_id={thread_id}&ticket={ticket or ""}"
+	def trigger(self, board, thread_id, previous_ticket=""):
+		url = f"https://sys.4chan.org/captcha?board={board}&thread_id={thread_id}&ticket={previous_ticket}"
 
 		page = self.context.new_page()
 		page.goto(url)
@@ -42,13 +40,10 @@ class Preloader:
 
 		cookie = next(filter(lambda cookie: cookie["name"] == "cf_clearance", self.context.cookies("https://4chan.org")))
 		update = {
-			"ticket": twister.get("ticket"),
+			"ticket": twister.get("ticket") or previous_ticket,
 			"cf_clearance": cookie["value"],
-			"pcd": twister.get("pcd") or (twister.get("challenge") and 0),
-			"pcd_msg": twister.get("pcd_msg") or (twister.get("challenge") and "Success")
+			"wait": twister.get("pcd") or twister.get("cd") or (twister.get("challenge") and 0),
+			"msg": twister.get("pcd_msg") or twister.get("error") or (twister.get("challenge") and "Success"),
+			"stop": twister.get("cd") != None
 		}
-		self.cache \
-			.setdefault(board, {}) \
-			.setdefault(thread_id, {}) \
-			.update({key: value for key, value in update.items() if value != None})
-		return self.cache[board][thread_id]
+		return {key: value for key, value in update.items() if value != None}

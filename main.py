@@ -79,7 +79,6 @@ while True:
 	if now - last_update >= update:
 		since = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(last_update))	# API Rule 3
 		for board in boards:
-			print(f"==> Performing update of /{board}/...")
 			response = requests.get(f"https://a.4cdn.org/{board}/threads.json", headers={"If-Modified-Since": since})
 			if response.status_code == 304:
 				continue
@@ -94,24 +93,28 @@ while True:
 				if thread_id not in available_threads:	# Remove dead threads
 					tickets[board].pop(thread_id)
 
+			print(f"==> Performing update of /{board}/...")
 			missing_threads = {
 				thread for thread in available_threads
 				if thread not in tickets.get(board, {})	# Was already fetched, let the refresh logic handle it
 			}
 			for i, thread_id in enumerate(missing_threads):
-				print(f"{i}/{len(missing_threads)}", end="\r")
+				print(f"{i+1}/{len(missing_threads)}", end="\r")
 				tickets.setdefault(board, {})[thread_id] = preloader.trigger(board, thread_id)
 				time.sleep(1)	# API Rule 1
+			print()
 
 		last_update = now
 
 	if now - last_refresh >= refresh:
 		for board in boards:
 			print(f"==> Performing refresh of /{board}/...")
-			for thread_id in tickets.get(board, {}):
-				print(f"{i}/{len(tickets[board])}", end="\r")
-				tickets[board][thread_id] = preloader.trigger(board, thread_id)
-				time.sleep(1)
+			for i, thread_id in enumerate(tickets.get(board, {}).keys()):
+				print(f"{i+1}/{len(tickets[board])}", end="\r")
+				thread = tickets[board][thread_id]
+				tickets[board][thread_id] = preloader.trigger(board, thread_id, thread["ticket"])
+				time.sleep((thread.get("stop") and thread["wait"]) or 1)
+			print()
 
 		last_refresh = now
 
