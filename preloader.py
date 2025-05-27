@@ -40,9 +40,10 @@ class Preloader:
 		response.wait_for()
 		twister = json.loads(response.text_content())
 
+		cookie = next(filter(lambda cookie: cookie["name"] == "cf_clearance", self.context.cookies("https://4chan.org")))
 		update = {
 			"ticket": twister.get("ticket"),
-			"cf_clearance": None,	# TODO
+			"cf_clearance": cookie["value"],
 			"pcd": twister.get("pcd") or (twister.get("challenge") and 0),
 			"pcd_msg": twister.get("pcd_msg") or (twister.get("challenge") and "Success")
 		}
