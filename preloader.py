@@ -1,10 +1,11 @@
 import json
+import time
 from playwright.sync_api import TimeoutError
 from camoufox.sync_api import Camoufox
 
 class Preloader:
 	def __init__(self, headless=True):
-		self.manager = Camoufox(os="windows", humanize=1.2, headless=headless)
+		self.manager = Camoufox(os="windows", humanize=0.4, headless=headless)
 		self.browser = self.manager.__enter__()
 		self.context = self.browser.new_context()
 
@@ -34,9 +35,11 @@ class Preloader:
 			captcha.wait_for_selector("#verifying", state="hidden")
 			captcha.click()
 
+		page.wait_for_load_state("domcontentloaded")
 		response = page.locator("body > pre")
 		response.wait_for()
 		twister = json.loads(response.text_content())
+		page.close()
 
 		cookie = next(filter(lambda cookie: cookie["name"] == "cf_clearance", self.context.cookies("https://4chan.org")))
 		update = {
@@ -44,6 +47,7 @@ class Preloader:
 			"cf_clearance": cookie["value"],
 			"wait": twister.get("pcd") or twister.get("cd") or (twister.get("challenge") and 0),
 			"msg": twister.get("pcd_msg") or twister.get("error") or (twister.get("challenge") and "Success"),
-			"stop": twister.get("cd") != None
+			"stop": twister.get("error") != None and twister.get("cd") != None,
+			"time": time.time()
 		}
 		return {key: value for key, value in update.items() if value != None}
