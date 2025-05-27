@@ -2,11 +2,9 @@ import json
 from playwright.sync_api import TimeoutError
 from camoufox.sync_api import Camoufox
 
-HEADLESS = False
-
 class Preloader:
-	def __init__(self):
-		self.manager = Camoufox(os="windows", humanize=1.2, headless=HEADLESS)
+	def __init__(self, headless=True):
+		self.manager = Camoufox(os="windows", humanize=1.2, headless=headless)
 		self.browser = self.manager.__enter__()
 		self.context = self.browser.new_context()
 		self.cache = {}
@@ -43,12 +41,13 @@ class Preloader:
 		twister = json.loads(response.text_content())
 
 		update = {
-			"ticket": twister.get("ticket") or ticket,
-			"pcd": twister.get("pcd"),
-			"pcd_msg": twister.get("pcd_msg")
+			"ticket": twister.get("ticket"),
+			"cf_clearance": None,	# TODO
+			"pcd": twister.get("pcd") or (twister.get("challenge") and 0),
+			"pcd_msg": twister.get("pcd_msg") or (twister.get("challenge") and "Success")
 		}
 		self.cache \
 			.setdefault(board, {}) \
 			.setdefault(thread_id, {}) \
-			.update({key: value for key, value in update.items() if value})
+			.update({key: value for key, value in update.items() if value != None})
 		return self.cache[board][thread_id]
