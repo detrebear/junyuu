@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Junyuu-chan
-// @description Preload Cloudflare captchas and 4chan delays
+// @description Companion to the junyuu preloader, replaces 4chan-tc-ticket per-thread
 // @author      detrebear
 // @version     0.1
 // @namespace   https://github.com/detrebear/junyuu-chan
