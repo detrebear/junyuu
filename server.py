@@ -8,7 +8,12 @@ class Handler(BaseHTTPRequestHandler):
 		super().__init__(*args, **kwargs)
 
 	def do_GET(self):
-		query = parse_qs(urlparse(self.path).query)
+		url = urlparse(self.path)
+		if url.path != "/":
+			self.send_response(400)
+			return
+
+		query = parse_qs(url.query)
 		board = query["board"][0]
 		thread_id = query["thread_id"][0]
 

@@ -3,6 +3,9 @@ import time
 from playwright.sync_api import TimeoutError
 from camoufox.sync_api import Camoufox
 
+class Timeout(Exception):
+	pass
+
 class Preloader:
 	def __init__(self, headless=True):
 		self.manager = Camoufox(os="windows", humanize=0.4, headless=headless)
@@ -18,8 +21,8 @@ class Preloader:
 		url = f"https://sys.4chan.org/captcha?board={board}&thread_id={thread_id}&ticket={previous_ticket}"
 
 		page = self.context.new_page()
-		page.goto(url)
-		page.wait_for_load_state("domcontentloaded")
+		page.goto(url, timeout=0)
+		page.wait_for_load_state("domcontentloaded", timeout=0)
 
 		if page.evaluate("document.querySelector('body > h1') != null"):
 			bypass = None
@@ -35,9 +38,12 @@ class Preloader:
 			captcha.wait_for_selector("#verifying", state="hidden")
 			captcha.click()
 
-		page.wait_for_load_state("domcontentloaded")
+		page.wait_for_load_state("domcontentloaded", timeout=0)
 		response = page.locator("body > pre")
-		response.wait_for()
+		try:
+			response.wait_for()
+		except TimeoutError:
+			raise Timeout()
 		twister = json.loads(response.text_content())
 		page.close()
 

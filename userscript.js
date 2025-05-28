@@ -16,7 +16,6 @@ const PORT = 1337;
 	const response = await fetch(`http://${HOST}:${PORT}/?board=${board}&thread_id=${thread_id}`, {method: "GET"});
 	if (response.status === 200) {
 		const data = await response.json();
-		document.cookie = `cf_clearance=${data["cf_clearance"]}; path=/; domain=.4chan.org`;
 		window.localStorage.setItem("4chan-tc-ticket", data["ticket"]);
 	}
 })();

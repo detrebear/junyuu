@@ -4,7 +4,7 @@ import time
 import os
 import json
 from threading import Thread
-from preloader import Preloader
+from preloader import Preloader, Timeout
 from server import Server
 
 refresh = 20*60
@@ -105,10 +105,16 @@ while True:
 			if len(to_update_threads) == 0:
 				continue
 
-			print(f"==> Performing update of /{board}/...")
-			for i, thread_id in enumerate(to_update_threads):
+			print(f"==> Updating /{board}/...")
+			i = 0
+			while i < len(to_update_threads):
+				thread_id = to_update_threads[i]
 				print(f"{i+1}/{len(to_update_threads)}", end="\r")
-				tickets.setdefault(board, {})[thread_id] = preloader.trigger(board, thread_id)
+				try:
+					tickets.setdefault(board, {})[thread_id] = preloader.trigger(board, thread_id)
+				except Timeout:
+					continue
+				i += 1
 				#time.sleep(1)	# TODO: Skipping API Rule 1 is risky, but otherwise it'd take longer to update than the refresh time
 			print()
 
